@@ -153,6 +153,45 @@ int max_table(double res[3][n], int indx)
     return result;
 }
 
+//draw a graph
+void graph()
+{
+    BOOL first = TRUE;
+    double res[3][n];
+    solve_func(res);
+
+    HWND hwn = GetConsoleWindow();
+    RECT rect;
+    HDC hdc = GetDC(hwn);
+    GetClientRect(hwn, &rect);
+
+    const int c = rect.right / 2, d = rect.bottom / 2, k = 100;
+
+    HPEN pen = CreatePen(PS_SOLID, 2, RGB(218, 164, 32));
+    HPEN pen2 = CreatePen(PS_SOLID, 3, RGB(135, 206, 250));
+
+    //draw Ox and Oy
+    SelectObject(hdc, pen);
+    MoveToEx(hdc, 0, d, NULL);
+    LineTo(hdc, c * k, d); // Ox
+    MoveToEx(hdc, c, 0, NULL);
+    LineTo(hdc, c, k * d); //Oy
+
+    //draw graphs of F1 and F2
+    for (int i = 0; i < n; i++)
+    {
+        if (first)  //draw a first point of graph
+        {
+            SelectObject(hdc, pen2);
+            MoveToEx(hdc, c + k * res[0][i], d - k * res[1][i], NULL);
+            first = FALSE;
+        }
+        else LineTo(hdc, c + k * res[0][i], d - k * res[1][i]);
+    }
+
+    _getch();
+}
+
 int main() {
     setlocale(LC_ALL, "rus");
     HideCursor();
@@ -210,6 +249,7 @@ int main() {
                 break;
             case 1:
                 printf("\n> Выбран пункт: Графики\n");
+                graph();
                 break;
             case 2:
                 printf("\n> Выбран пункт: Уравнение\n");
