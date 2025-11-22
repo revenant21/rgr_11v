@@ -2,9 +2,9 @@
 #include <math.h>
 #include <stdio.h>
 #include <windows.h>
-#include <conio.h> // Для _getch()
+#include <conio.h>
 
-// Константы клавиш
+//keys of keyboard
 #define KEY_UP 72
 #define KEY_DOWN 80
 #define KEY_ENTER 13
@@ -15,7 +15,6 @@
 #define b 2 * 3.1415
 #define n 20
 
-// Названия пунктов меню
 const char* menu_items[MENU_SIZE] = {
     "1. Автор",
     "2. Заставка",
@@ -26,7 +25,7 @@ const char* menu_items[MENU_SIZE] = {
     "7. Выход"
 };
 
-// Функция установки цвета консоли
+// set color for menu (0 - no color, 1 - with color)
 void SetColor(int k) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     if (k == 1) {
@@ -37,7 +36,7 @@ void SetColor(int k) {
     }
 }
 
-// Скрыть мигающий курсор (для красоты меню)
+// hide console cursor
 void HideCursor() {
     HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_CURSOR_INFO info;
@@ -46,7 +45,7 @@ void HideCursor() {
     SetConsoleCursorInfo(consoleHandle, &info);
 }
 
-// Функция отрисовки таблицы
+// draw table
 void table_draw()
 {
     double F1, F2, s = fabs(b - a) / (n - 1), x = a;
@@ -74,16 +73,16 @@ int main() {
 
     while (running)
     {
-        system("cls"); // Очистка экрана перед отрисовкой меню
+        system("cls"); // clean screen before output menu
         printf("  --- МЕНЮ ---\n\n");
 
-        // Отрисовка пунктов с подсветкой
+        // draw menu with colors
         for (int i = 0; i < MENU_SIZE; i++)
         {
             if (i == selected) {
-                SetColor(1); // Белый фон, черный текст (выделение)
+                SetColor(1);
                 printf("  %s  \n", menu_items[i]);
-                SetColor(0);   // Возврат к обычному цвету
+                SetColor(0);   // return to normal color
             }
             else {
                 printf("   %s    \n", menu_items[i]);
@@ -92,26 +91,26 @@ int main() {
 
         printf("\nИспользуйте СТРЕЛКИ для навигации, ENTER для выбора.");
 
-        // Ожидание нажатия клавиши (программа "спит", пока не нажмете кнопку)
+        // waiting for press key
         key = _getch();
 
-        // Обработка клавиш
-        if (key == 224 || key == 0) { // Если нажата спец-клавиша (стрелка)
-            key = _getch(); // Считываем код самой стрелки
+        // processing keys
+        if (key == 224 || key == 0) { // if press a spec-key
+            key = _getch(); // reading key code
             switch (key) {
             case KEY_UP:
                 selected--;
-                if (selected < 0) selected = MENU_SIZE - 1; // Зацикливание снизу вверх
+                if (selected < 0) selected = MENU_SIZE - 1; // looping down to up
                 break;
             case KEY_DOWN:
                 selected++;
-                if (selected >= MENU_SIZE) selected = 0; // Зацикливание сверху вниз
+                if (selected >= MENU_SIZE) selected = 0; // looping up to down
                 break;
             }
         }
-        else if (key == KEY_ENTER) { // Если нажат ENTER
-            system("cls"); // Очищаем меню, чтобы показать результат
-            SetColor(0);   // Гарантируем стандартный цвет
+        else if (key == KEY_ENTER) { // if press ENTER
+            system("cls"); // clear menu for show result
+            SetColor(0);   // set normal color
 
             switch (selected)
             {
@@ -141,14 +140,13 @@ int main() {
                 break;
             }
 
-            // Если мы не выходим, ставим паузу, чтобы пользователь увидел результат
             if (running) {
                 printf("\nНажмите любую клавишу для возврата в меню...");
                 _getch();
             }
         }
         else if (key == KEY_ESC) {
-            running = 0; // Быстрый выход по Escape
+            running = 0; // fast escape on "ESC"
         }
     }
 
