@@ -57,13 +57,11 @@ void solve_func(double res[3][n])
 {
     double step = fabs(b - a) / (n - 1);
 
-    res[0][0] = a;
-
     for (int num = 0; num < n; num++)
     {
+        res[0][num] = a + num * step;
         res[1][num] = 5 - 3 * cos(res[0][num]);
         res[2][num] = sqrt(1 + pow(sin(res[0][num]), 2));
-        res[0][num + 1] = res[0][num] + step;
     }
 }
 
@@ -123,8 +121,8 @@ void table_draw()
 //min and max for table_draw()
 int min_table(double res[3][n], int indx) 
 {
-    int result;
-    double min = pow(10, 5);
+    int result = 0;
+    double min = res[indx][0];
 
     for (int i = 0; i < n; i++)
     {
@@ -139,8 +137,8 @@ int min_table(double res[3][n], int indx)
 
 int max_table(double res[3][n], int indx)
 {
-    int result;
-    double max = 0;
+    int result = 0;
+    double max = res[indx][0];
 
     for (int i = 0; i < n; i++)
     {
@@ -153,10 +151,15 @@ int max_table(double res[3][n], int indx)
     return result;
 }
 
+long map_val(double val, double min_v, double max_v, long p_min, long p_max) {
+    if (max_v == min_v) return p_min;
+    double t = (val - min_v) / (max_v - min_v);
+    return p_min + (long)(t * (p_max - p_min));
+}
+
 //draw a graph
 void graph()
 {
-    BOOL first = TRUE;
     double res[3][n];
     solve_func(res);
 
@@ -165,30 +168,82 @@ void graph()
     HDC hdc = GetDC(hwn);
     GetClientRect(hwn, &rect);
 
-    const int c = rect.right / 2, d = rect.bottom / 2, k = 100;
+    // padding inside client area
+    int pad_x = rect.right / 15;
+    int pad_y = rect.bottom / 10;
 
-    HPEN pen = CreatePen(PS_SOLID, 2, RGB(218, 164, 32));
-    HPEN pen2 = CreatePen(PS_SOLID, 3, RGB(135, 206, 250));
+    int px_left = rect.left + pad_x;
+    int px_right = rect.right - pad_x;
+    int py_top = rect.top + pad_y;
+    int py_bottom = rect.bottom - pad_y;
 
-    //draw Ox and Oy
-    SelectObject(hdc, pen);
-    MoveToEx(hdc, 0, d, NULL);
-    LineTo(hdc, c * k, d); // Ox
-    MoveToEx(hdc, c, 0, NULL);
-    LineTo(hdc, c, k * d); //Oy
+	//clean field bottom graph
+    HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
+    FillRect(hdc, &rect, hBrush);
+    DeleteObject(hBrush);
 
-    //draw graphs of F1 and F2
-    for (int i = 0; i < n; i++)
-    {
-        if (first)  //draw a first point of graph
-        {
-            SelectObject(hdc, pen2);
-            MoveToEx(hdc, c + k * res[0][i], d - k * res[1][i], NULL);
-            first = FALSE;
-        }
-        else LineTo(hdc, c + k * res[0][i], d - k * res[1][i]);
+    // compute x and y ranges
+    double xmin = res[0][0];
+    double xmax = res[0][n - 1];
+
+    double ymin = res[1][0];
+    double ymax = res[1][0];
+    for (int i = 0; i < n; ++i) {
+        if (res[1][i] < ymin) ymin = res[1][i];
+        if (res[1][i] > ymax) ymax = res[1][i];
+        if (res[2][i] < ymin) ymin = res[2][i];
+        if (res[2][i] > ymax) ymax = res[2][i];
     }
 
+    // small margin
+    double margin = (ymax - ymin) * 0.1;
+    ymin -= margin;
+    ymax += margin;
+
+    HPEN pen_axis = CreatePen(PS_SOLID, 2, RGB(218, 164, 32));
+    HPEN pen_f1 = CreatePen(PS_SOLID, 3, RGB(135, 206, 250));
+	HPEN pen_f2 = CreatePen(PS_SOLID, 3, RGB(255, 105, 180));
+
+    // draw axes (X and Y)
+    HPEN oldPen = (HPEN)SelectObject(hdc, pen_axis);
+
+    MoveToEx(hdc, px_left, py_top, NULL); LineTo(hdc, px_left, py_bottom);   // Ось Y (слева)
+    LineTo(hdc, px_right, py_bottom);
+
+    //draw graphs of F1 and F2
+    SelectObject(hdc, pen_f1);
+    for (int i = 0; i < n; i++) {
+        long px = map_val(res[0][i], res[0][0], res[0][n-1], px_left, px_right);
+        long py = map_val(res[1][i], ymin, ymax, py_bottom, py_top);
+
+        if (i == 0) MoveToEx(hdc, px, py, NULL);
+        else LineTo(hdc, px, py);
+    }
+
+    SelectObject(hdc, pen_f2);
+    for (int i = 0; i < n; i++) {
+        long px = map_val(res[0][i], res[0][0], res[0][n-1], px_left, px_right);
+        long py = map_val(res[2][i], ymin, ymax, py_bottom, py_top);
+
+        if (i == 0) MoveToEx(hdc, px, py, NULL);
+        else LineTo(hdc, px, py);
+    }
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(0, 255, 0));
+    TextOutA(hdc, px_left + 10, py_top - 20, "F1: 5 - 3cos(x)", 15);
+    SetTextColor(hdc, RGB(255, 50, 50));
+    TextOutA(hdc, px_left + 200, py_top - 20, "F2: sqrt(1 + sin^2(x))", 22);
+
+
+    
+    // restore and cleanup
+    SelectObject(hdc, oldPen);
+    DeleteObject(pen_axis);
+    DeleteObject(pen_f1);
+    DeleteObject(pen_f2);
+    ReleaseDC(hwn, hdc);
+    
     _getch();
 }
 
@@ -248,7 +303,6 @@ int main() {
                 table_draw();
                 break;
             case 1:
-                printf("\n> Выбран пункт: Графики\n");
                 graph();
                 break;
             case 2:
