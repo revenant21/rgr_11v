@@ -24,7 +24,7 @@ void table_draw()
     double F1, F2, s = fabs(b - a) / (n - 1), x = a;
 
     printf(" ___________________________________________ \n");
-    printf(" | I |      X     |      F1     |       F2    | \n");
+    printf(" | I |     X    |     F1     |      F2     | \n");
     printf(" |---|----------|------------|-------------|\n");
     for (int i = 0; i < n; i++)
     {
