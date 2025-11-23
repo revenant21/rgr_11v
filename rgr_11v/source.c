@@ -14,7 +14,7 @@
 
 //specs of math functions
 #define a 0.00
-#define b 2 * 3.1415
+#define b (2 * 3.1415)
 #define n 20
 
 //colors for max/min
@@ -151,8 +151,11 @@ int max_table(double res[3][n], int indx)
     return result;
 }
 
+//translate cords from math area to pixel area  
 long map_val(double val, double min_v, double max_v, long p_min, long p_max) {
-    if (max_v == min_v) return p_min;
+    if (fabs(max_v - min_v) < 1e-9) {
+        return (p_min + p_max) / 2;
+    }
     double t = (val - min_v) / (max_v - min_v);
     return p_min + (long)(t * (p_max - p_min));
 }
@@ -169,7 +172,7 @@ void graph()
     GetClientRect(hwn, &rect);
 
     // padding inside client area
-    int pad_x = rect.right / 15;
+    int pad_x = rect.right / 10;
     int pad_y = rect.bottom / 10;
 
     int px_left = rect.left + pad_x;
@@ -177,10 +180,7 @@ void graph()
     int py_top = rect.top + pad_y;
     int py_bottom = rect.bottom - pad_y;
 
-	//clean field bottom graph
-    HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 0));
-    FillRect(hdc, &rect, hBrush);
-    DeleteObject(hBrush);
+    system("color 0F");
 
     // compute x and y ranges
     double xmin = res[0][0];
@@ -188,6 +188,7 @@ void graph()
 
     double ymin = res[1][0];
     double ymax = res[1][0];
+
     for (int i = 0; i < n; ++i) {
         if (res[1][i] < ymin) ymin = res[1][i];
         if (res[1][i] > ymax) ymax = res[1][i];
@@ -197,46 +198,103 @@ void graph()
 
     // small margin
     double margin = (ymax - ymin) * 0.1;
+	if (margin < 1e-9) margin = 1.0; // save from zero range
     ymin -= margin;
     ymax += margin;
 
     HPEN pen_axis = CreatePen(PS_SOLID, 2, RGB(218, 164, 32));
+    HPEN pen_grid = CreatePen(PS_DOT, 1, RGB(50, 50, 50));
     HPEN pen_f1 = CreatePen(PS_SOLID, 3, RGB(135, 206, 250));
 	HPEN pen_f2 = CreatePen(PS_SOLID, 3, RGB(255, 105, 180));
+
+    SetBkMode(hdc, TRANSPARENT);
+
+    int steps = 10;
+    char buf[32];
+
+	// draw Y axis labels and grid lines
+    SetTextAlign(hdc, TA_RIGHT | TA_TOP);
+    SetTextColor(hdc, RGB(200, 200, 200));
+
+    for (int i = 0; i <= steps; i++) {
+        double val = ymin + (ymax - ymin) * i / steps;
+        long py = map_val(val, ymin, ymax, py_bottom, py_top);
+
+		// draw grid line
+        if (i > 0 && i < steps) {
+            SelectObject(hdc, pen_grid);
+            MoveToEx(hdc, px_left, py, NULL);
+            LineTo(hdc, px_right, py);
+        }
+
+		// draw tick mark
+        SelectObject(hdc, pen_axis);
+        MoveToEx(hdc, px_left - 5, py, NULL);
+        LineTo(hdc, px_left, py);
+
+		// output label
+        sprintf_s(buf, 32, "%.2f", val);
+        TextOutA(hdc, px_left - 8, py - 8, buf, strlen(buf));
+    }
+
+	SetTextAlign(hdc, TA_CENTER | TA_TOP); // text alignment for X axis
+
+    for (int i = 0; i <= steps; i++) {
+        double val = xmin + (xmax - xmin) * i / steps;
+        long px = map_val(val, xmin, xmax, px_left, px_right);
+
+        // grid
+        if (i > 0 && i < steps) {
+            SelectObject(hdc, pen_grid);
+            MoveToEx(hdc, px, py_bottom, NULL);
+            LineTo(hdc, px, py_top);
+        }
+
+		// grid tick
+        SelectObject(hdc, pen_axis);
+        MoveToEx(hdc, px, py_bottom, NULL);
+        LineTo(hdc, px, py_bottom + 5);
+
+		// label
+        sprintf_s(buf, 32, "%.1f", val);
+        TextOutA(hdc, px, py_bottom + 8, buf, strlen(buf));
+    }
 
     // draw axes (X and Y)
     HPEN oldPen = (HPEN)SelectObject(hdc, pen_axis);
 
-    MoveToEx(hdc, px_left, py_top, NULL); LineTo(hdc, px_left, py_bottom);   // Ось Y (слева)
-    LineTo(hdc, px_right, py_bottom);
+    MoveToEx(hdc, px_left, py_top, NULL);
+    LineTo(hdc, px_left, py_bottom);  // О Y
+    LineTo(hdc, px_right, py_bottom); // О X
 
     //draw graphs of F1 and F2
+    POINT points[n];
+
+    // F1
     SelectObject(hdc, pen_f1);
     for (int i = 0; i < n; i++) {
-        long px = map_val(res[0][i], res[0][0], res[0][n-1], px_left, px_right);
-        long py = map_val(res[1][i], ymin, ymax, py_bottom, py_top);
-
-        if (i == 0) MoveToEx(hdc, px, py, NULL);
-        else LineTo(hdc, px, py);
+        points[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
+        points[i].y = map_val(res[1][i], ymin, ymax, py_bottom, py_top);
     }
+    Polyline(hdc, points, n);
 
+    // F2
     SelectObject(hdc, pen_f2);
     for (int i = 0; i < n; i++) {
-        long px = map_val(res[0][i], res[0][0], res[0][n-1], px_left, px_right);
-        long py = map_val(res[2][i], ymin, ymax, py_bottom, py_top);
-
-        if (i == 0) MoveToEx(hdc, px, py, NULL);
-        else LineTo(hdc, px, py);
+        points[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
+        points[i].y = map_val(res[2][i], ymin, ymax, py_bottom, py_top);
     }
+    Polyline(hdc, points, n);
 
+    // output text of functions
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(0, 255, 0));
-    TextOutA(hdc, px_left + 10, py_top - 20, "F1: 5 - 3cos(x)", 15);
-    SetTextColor(hdc, RGB(255, 50, 50));
-    TextOutA(hdc, px_left + 200, py_top - 20, "F2: sqrt(1 + sin^2(x))", 22);
 
-
+    SetTextColor(hdc, RGB(135, 206, 250));
+    TextOutA(hdc, px_left + 300, py_top, "F1(х) = 5 - 3cos(x)", 19);
     
+    SetTextColor(hdc, RGB(255, 105, 180));
+    TextOutA(hdc, px_left + 300, py_top + 300, "F2(x) = sqrt(1 + sin^2(x))", 26);
+
     // restore and cleanup
     SelectObject(hdc, oldPen);
     DeleteObject(pen_axis);
@@ -246,6 +304,8 @@ void graph()
     
     _getch();
 }
+
+
 
 int main() {
     setlocale(LC_ALL, "rus");
