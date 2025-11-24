@@ -1,6 +1,6 @@
+#include <stdio.h>
 #include <locale.h>
 #include <math.h>
-#include <stdio.h>
 #include <windows.h>
 #include <conio.h>
 
@@ -8,7 +8,6 @@
 #define KEY_UP 72
 #define KEY_DOWN 80
 #define KEY_ENTER 13
-#define KEY_ESC 27
 
 #define MENU_SIZE 7
 
@@ -47,7 +46,7 @@ void SetColor(int k) {
 void HideCursor() {
     HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_CURSOR_INFO info;
-    info.dwSize = 100;
+    GetConsoleCursorInfo(consoleHandle, &info);
     info.bVisible = FALSE;
     SetConsoleCursorInfo(consoleHandle, &info);
 }
@@ -111,8 +110,6 @@ void table_draw()
         printf(" %12.8f", res[2][i]);
         printf(COLOR_RESET);
         printf("|\n");
-
-        //printf(" |%3d| %8.3f |%12.7f| %12.8f|\n", i + 1, res[0][i], res[1][i], res[2][i]);
     }
     printf(" ------------------------------------------- \n");
     printf("Легенда: " COLOR_GREEN "Максимум " COLOR_RED "Минимум" COLOR_RESET);
@@ -153,10 +150,12 @@ int max_table(double res[3][n], int indx)
 
 //translate cords from math area to pixel area  
 long map_val(double val, double min_v, double max_v, long p_min, long p_max) {
-    if (fabs(max_v - min_v) < 1e-9) {
+	double range_v = max_v - min_v; //промежуток между минимальным и максимальным значением
+    
+    if (fabs(range_v) < 1e-9) { // защита от деления на ноль (1е-9 = 0,000000001)
         return (p_min + p_max) / 2;
     }
-    double t = (val - min_v) / (max_v - min_v);
+    double t = (val - min_v) / range_v;
     return p_min + (long)(t * (p_max - p_min));
 }
 
@@ -174,7 +173,7 @@ void graph()
     // padding inside client area
     int pad_x = rect.right / 10;
     int pad_y = rect.bottom / 10;
-
+    
     int px_left = rect.left + pad_x;
     int px_right = rect.right - pad_x;
     int py_top = rect.top + pad_y;
@@ -305,7 +304,73 @@ void graph()
     _getch();
 }
 
+void showcase()
+{
+    HWND hwn = GetConsoleWindow();
+    RECT rect;
+    GetClientRect(hwn, &rect);
+    HDC hdc = GetDC(hwn);
 
+    HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
+    HPEN oldPen = (HPEN)SelectObject(hdc, GetStockObject(NULL_PEN));
+
+    int w = rect.right, h = rect.bottom;
+    int cols = w / 15;
+    int rows = h / 20;
+
+    typedef struct { int y; int speed; int len; } Column;
+    Column* columns = (Column*)malloc(cols * sizeof(Column));
+
+    for (int i = 0; i < cols; i++) {
+        columns[i].y = rand() % rows;
+        columns[i].speed = 1 + rand() % 3;
+        columns[i].len = 5 + rand() % 10;
+    }
+
+    while (!_kbhit()) {
+        FillRect(hdc, &rect, bg);
+        SetBkMode(hdc, TRANSPARENT);
+
+        for (int col = 0; col < cols; col++) {
+            int x = col * 15 + 10;
+
+            // Яркая букв впереди (светлая)
+            SetTextColor(hdc, RGB(0, 255, 0));
+            char ch = 'A' + rand() % 26;
+            char buf[] = { ch, 0 };
+            TextOutA(hdc, x, columns[col].y, buf, 1);
+
+            // Хвост (затухающая линия)
+            for (int i = 1; i < columns[col].len; i++) {
+                int brightness = 255 - (i * 255 / columns[col].len);
+                SetTextColor(hdc, RGB(0, brightness / 2, 0));
+
+                int ty = columns[col].y - i * 20;
+                if (ty >= 0) {
+                    char tail_ch = 'A' + rand() % 26;
+                    char tail[] = { tail_ch, 0 };
+                    TextOutA(hdc, x, ty, tail, 1);
+                }
+            }
+
+            // Движение и циклирование
+            columns[col].y += columns[col].speed;
+            if (columns[col].y > h) {
+                columns[col].y = -columns[col].len * 20;
+                columns[col].speed = 1 + rand() % 3;
+                columns[col].len = 5 + rand() % 10;
+            }
+        }
+
+        Sleep(50);
+    }
+
+    free(columns);
+    SelectObject(hdc, oldPen);
+    DeleteObject(bg);
+    ReleaseDC(hwn, hdc);
+    _getch();
+}
 
 int main() {
     setlocale(LC_ALL, "rus");
@@ -372,7 +437,7 @@ int main() {
                 printf("\n> Выбран пункт: Интеграл\n");
                 break;
             case 4:
-                printf("\n> Выбран пункт: Заставка\n");
+                showcase();
                 break;
             case 5:
                 printf("\n> Выбран пункт: Автор\n");
@@ -389,10 +454,6 @@ int main() {
                 _getch();
             }
         }
-        else if (key == KEY_ESC) {
-            running = 0; // fast escape on "ESC"
-        }
     }
-
     return 0;
 }
