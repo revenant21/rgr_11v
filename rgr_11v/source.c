@@ -4,31 +4,26 @@
 #include <windows.h>
 #include <conio.h>
 
-//keys of keyboard
 #define KEY_UP 72
 #define KEY_DOWN 80
 #define KEY_ENTER 13
-
 #define MENU_SIZE 7
-
-//specs of math functions
 #define a 0.00
 #define b (2 * 3.1415)
 #define n 20
 
-//colors for max/min
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"
 #define COLOR_RESET   "\x1b[0m"
 
 const char* menu_items[MENU_SIZE] = {
-    "1. Таблица",
-    "2. Графики",
-    "3. Уравнения",
-    "4. Интеграл",
-    "5. Заставка",
-    "6. Об авторе",
-    "7. Выход"
+    "\t\t\t1. Таблица",
+    "\t\t\t2. Графики",
+    "\t\t\t3. Уравнения",
+    "\t\t\t4. Интеграл",
+    "\t\t\t5. Заставка",
+    "\t\t\t6. Об авторе",
+    "\t\t\t7. Выход"
 };
 
 // set color for menu (0 - no color, 1 - with color)
@@ -44,11 +39,8 @@ void SetColor(int k) {
 
 // hide console cursor
 void HideCursor() {
-    HANDLE consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_CURSOR_INFO info;
-    GetConsoleCursorInfo(consoleHandle, &info);
-    info.bVisible = FALSE;
-    SetConsoleCursorInfo(consoleHandle, &info);
+    CONSOLE_CURSOR_INFO info = { 100, FALSE };
+    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info);
 }
 
 //function for pre-solve
@@ -69,21 +61,18 @@ void table_draw()
 {
     double res[3][n];
     int min1, min2, max1, max2;
-
-    printf(" ___________________________________________ \n");
-    printf(" | I |     X    |     F1     |      F2     | \n");
-    printf(" |---|----------|------------|-------------|\n");
+    printf("\n\t\t\t ___________________________________________ \n");
+    printf("\t\t\t | I |     X    |     F1     |      F2     | \n");
+    printf("\t\t\t |---|----------|------------|-------------|\n");
     solve_func(res);
 
-    min1 = min_table(res, 1);
-    min2 = min_table(res, 2);
-    max1 = max_table(res, 1);
-    max2 = max_table(res, 2);
+    min1 = minMax_table(res, 1, &max1);
+    min2 = minMax_table(res, 2, &max2);
 
     //check for min/max and coloring
     for (int i = 0; i < n; i++)
     {
-        printf(" |%3d| %8.3f |", i + 1, res[0][i]);
+        printf("\t\t\t |%3d| %8.3f |", i + 1, res[0][i]);
         
         if (i == min1)
         {
@@ -111,14 +100,16 @@ void table_draw()
         printf(COLOR_RESET);
         printf("|\n");
     }
-    printf(" ------------------------------------------- \n");
-    printf("Легенда: " COLOR_GREEN "Максимум " COLOR_RED "Минимум" COLOR_RESET);
+    printf("\t\t\t ___________________________________________ \n");
+    printf("\t\t\tЛегенда: " COLOR_GREEN "Максимум " COLOR_RED "Минимум" COLOR_RESET);
 }
 
 //min and max for table_draw()
-int min_table(double res[3][n], int indx) 
+int minMax_table(double res[3][n], int indx, int* m) 
 {
-    int result = 0;
+    int min_res = 0;
+    int max_res = 0;
+    double max = res[indx][0];
     double min = res[indx][0];
 
     for (int i = 0; i < n; i++)
@@ -126,37 +117,20 @@ int min_table(double res[3][n], int indx)
         if (res[indx][i] < min)
         {
             min = res[indx][i];
-            result = i;
+            min_res = i;
         }
-    }
-    return result;
-}
-
-int max_table(double res[3][n], int indx)
-{
-    int result = 0;
-    double max = res[indx][0];
-
-    for (int i = 0; i < n; i++)
-    {
-        if (res[indx][i] > max)
-        {
+        if (res[indx][i] > max) {
             max = res[indx][i];
-            result = i;
+            max_res = i;
         }
     }
-    return result;
+    *m = max_res;
+    return min_res;
 }
 
 //translate cords from math area to pixel area  
-long map_val(double val, double min_v, double max_v, long p_min, long p_max) {
-	double range_v = max_v - min_v; //промежуток между минимальным и максимальным значением
-    
-    if (fabs(range_v) < 1e-9) { // защита от деления на ноль (1е-9 = 0,000000001)
-        return (p_min + p_max) / 2;
-    }
-    double t = (val - min_v) / range_v;
-    return p_min + (long)(t * (p_max - p_min));
+long map_val(double v, double min_v, double max_v, long p_min, long p_max) {
+    return (max_v - min_v < 1e-9) ? (p_min + p_max) / 2 : p_min + (long)((v - min_v) / (max_v - min_v) * (p_max - p_min));
 }
 
 //draw a graph
@@ -219,13 +193,6 @@ void graph()
         double val = ymin + (ymax - ymin) * i / steps;
         long py = map_val(val, ymin, ymax, py_bottom, py_top);
 
-		// draw grid line
-        if (i > 0 && i < steps) {
-            SelectObject(hdc, pen_grid);
-            MoveToEx(hdc, px_left, py, NULL);
-            LineTo(hdc, px_right, py);
-        }
-
 		// draw tick mark
         SelectObject(hdc, pen_axis);
         MoveToEx(hdc, px_left - 5, py, NULL);
@@ -241,13 +208,6 @@ void graph()
     for (int i = 0; i <= steps; i++) {
         double val = xmin + (xmax - xmin) * i / steps;
         long px = map_val(val, xmin, xmax, px_left, px_right);
-
-        // grid
-        if (i > 0 && i < steps) {
-            SelectObject(hdc, pen_grid);
-            MoveToEx(hdc, px, py_bottom, NULL);
-            LineTo(hdc, px, py_top);
-        }
 
 		// grid tick
         SelectObject(hdc, pen_axis);
@@ -383,22 +343,21 @@ int main() {
     while (running)
     {
         system("cls"); // clean screen before output menu
-        printf("  --- МЕНЮ ---\n\n");
+        printf("\n\n\n");
+        printf("\t\t\t  --- МЕНЮ ---\n\n");
 
         // draw menu with colors
         for (int i = 0; i < MENU_SIZE; i++)
         {
             if (i == selected) {
                 SetColor(1);
-                printf("  %s  \n", menu_items[i]);
+                printf(" %s  \n", menu_items[i]);
                 SetColor(0);   // return to normal color
             }
             else {
                 printf("   %s    \n", menu_items[i]);
             }
         }
-
-        printf("\nИспользуйте СТРЕЛКИ для навигации, ENTER для выбора.");
 
         // waiting for press key
         key = _getch();
@@ -424,7 +383,7 @@ int main() {
             switch (selected)
             {
             case 0:
-                printf("\n> Таблица значений:\n");
+                printf("\n\t\t\tТаблица значений:");
                 table_draw();
                 break;
             case 1:
@@ -440,8 +399,7 @@ int main() {
                 showcase();
                 break;
             case 5:
-                printf("\n> Выбран пункт: Автор\n");
-                printf("> Автор: ст.гр. ИВТ-254 Дубровин А.А.\n");
+                printf("\n\n\n\t\t\t" COLOR_GREEN "Автор: " COLOR_RESET "ст.гр. " COLOR_GREEN "ИВТ - 254 " COLOR_RESET "Дубровин А.А.\n\n");
                 break;
             case 6:
                 printf("\n> Выход из программы...\n");
