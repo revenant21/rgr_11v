@@ -21,14 +21,27 @@
 #define COLOR_RESET   "\x1b[0m"
 
 const char* menu_items[] = {
-    "\t\t\t1. Таблица", "\t\t\t2. Графики", "\t\t\t3. Уравнения", "\t\t\t4. Интеграл",
-    "\t\t\t5. Заставка", "\t\t\t6. Об авторе", "\t\t\t7. Выход"
+    "\t\t\t1. Таблица", 
+    "\t\t\t2. Графики",
+    "\t\t\t3. Уравнения", 
+    "\t\t\t4. Интеграл",
+    "\t\t\t5. Заставка", 
+    "\t\t\t6. Об авторе", 
+    "\t\t\t7. Выход"
 };
 const char* equal_menu_items[] = {
-    "\t\t\t1. Метод бисекции", "\t\t\t2. Метод хорд", "\t\t\t3. Метод Ньютона", "\t\t\t4. Выход"
+    "\t\t\t1. Метод бисекции",
+    "\t\t\t2. Метод хорд",
+    "\t\t\t3. Метод Ньютона",
+    "\t\t\t4. Выход"
 };
-
-// --- Служебные функции ---
+const char* integral_menu_items[] = {
+    "\t\t\t1. Метод средних прямоугольников",
+    "\t\t\t2. Метод трапеции",
+    "\t\t\t3. Метод Симпсона",
+    "\t\t\t4. Метод Ромберга",
+    "\t\t\t5. Выход"
+};
 
 void HideCursor() {
     CONSOLE_CURSOR_INFO info = { 100, FALSE };
@@ -233,7 +246,7 @@ void solve_newton() {
     eps = pow(0.1, e_pow);
 
     printf("\n\t\t\tШаг\t x0\t\t f(x0)\t\t f'(x0)\t\t x1\n");
-    printf("\t\t\t--------------------------------------------------------\n");
+    printf("\t\t\t-----------------------------------------------------------------\n");
 
     do {
         if (fabs(df(x0)) < 1e-9) {
@@ -264,6 +277,143 @@ void equals() {
         }
         printf("\nНажмите любую клавишу...");
         _getch();
+    }
+}
+
+double func_int(double x) {
+    double znam = sin(x) + cos(x);
+    if (fabs(znam) < 1e-7) return 0.0;
+    return cos(x) / znam;
+}
+
+void solve_rect_mid() {
+    double A, B, h, sum = 0.0;
+    int N;
+    printf("\n\t\t\tМетод средних прямоугольников\n");
+    printf("\t\t\tВведите границы интегрирования [a, b]: ");
+    scanf_s("%lf%lf", &A, &B);
+    printf("\t\t\tКоличество разбиений (N): ");
+    scanf_s("%d", &N);
+
+    h = (B - A) / N;
+    for (int i = 0; i < N; i++) {
+        double x = A + h * (i + 0.5);
+        sum += func_int(x);
+    }
+    double result = sum * h;
+    printf("\n\t\t\tРезультат: %.8lf\n", result);
+
+    _getch();
+}
+
+void solve_trapezoid() {
+    double A, B, h, sum = 0.0;
+    int N;
+    printf("\n\t\t\tМетод трапеции\n");
+    printf("\t\t\tВведите границы интегрирования [a, b]: ");
+    scanf_s("%lf%lf", &A, &B);
+    printf("\t\t\tКоличество разбиений (N): ");
+    scanf_s("%d", &N);
+
+    h = (B - A) / N;
+    // Формула: h * ((y0 + yn)/2 + сумма остальных)
+    sum = (func_int(A) + func_int(B)) / 2.0;
+    for (int i = 1; i < N; i++) {
+        sum += func_int(A + i * h);
+    }
+    double result = sum * h;
+    printf("\n\t\t\tРезультат: %.8lf\n", result);
+
+    _getch();
+}
+
+void solve_simpson() {
+    double A, B, h, sum = 0.0;
+    int N;
+    printf("\n\t\t\tМетод Симпсона\n");
+    printf("\t\t\tВведите границы интегрирования [a, b]: ");
+    scanf_s("%lf%lf", &A, &B);
+    printf("\t\t\tКоличество разбиений (N, должно быть четным): ");
+    scanf_s("%d", &N);
+
+    if (N % 2 != 0) {
+        N++;
+        printf("\t\t\tN увеличено до %d (требуется четное число)\n", N);
+    }
+
+    h = (B - A) / N;
+    sum = func_int(A) + func_int(B);
+
+    for (int i = 1; i < N; i++) {
+        if (i % 2 != 0)
+            sum += 4 * func_int(A + i * h);
+        else
+            sum += 2 * func_int(A + i * h); 
+    }
+    double result = sum * (h / 3.0);
+    printf("\n\t\t\tРезультат: %.8lf\n", result);
+
+    _getch();
+}
+
+void solve_romberg() {
+    double A, B, E;
+    int max_steps = 20, e;
+    double R[21][21];
+
+    printf("\n\t\t\tМетод Ромберга\n");
+    printf("\t\t\tВведите границы интегрирования [a, b]: ");
+    scanf_s("%lf%lf", &A, &B);
+    printf("\t\t\tТочность (число знаков после запятой, напр. 4): ");
+
+    scanf_s("%d", &e);
+    E = pow(0.1, e);
+
+    double h = B - A;
+    R[0][0] = (h / 2.0) * (func_int(A) + func_int(B));
+
+    int m_points = 1; 
+    for (int i = 1; i < max_steps; i++) {
+        h /= 2.0;
+        double sum = 0.0;
+
+        for (int k = 1; k <= m_points; k++) {
+            sum += func_int(A + (2 * k - 1) * h);
+        }
+
+        R[i][0] = 0.5 * R[i - 1][0] + sum * h;
+
+        for (int j = 1; j <= i; j++) {
+            double coef = pow(4, j);
+            R[i][j] = (coef * R[i][j - 1] - R[i - 1][j - 1]) / (coef - 1);
+        }
+
+        if (fabs(R[i][i] - R[i - 1][i - 1]) < E) {
+            printf("\n\t\t\tРезультат: %.8lf (итераций: %d)\n", R[i][i], i);
+            _getch(); 
+            return;
+        }
+
+        m_points *= 2; 
+    }
+
+    printf("\n\t\t\tДостигнут лимит итераций. Результат: %.8lf\n", R[max_steps - 1][max_steps - 1]);
+    _getch();
+}
+
+void integral() {
+    while (1) {
+        int sel = handle_menu(integral_menu_items, INTEGRAL_MENU_SIZE, "Численное интегрирование");
+        system("cls");
+        if (sel == 4) break;
+
+        printf("\n\n\t\t\tИнтегрирование функции cos(x)/(sin(x)+cos(x))\n");
+        switch (sel) {
+        case 0: solve_rect_mid(); break;
+        case 1: solve_trapezoid(); break;
+        case 2: solve_simpson(); break;
+        case 3: solve_romberg(); break;
+        }
     }
 }
 
@@ -315,7 +465,7 @@ int main() {
         case 0: printf("\n\t\t\tТаблица значений:"); table_draw(); break;
         case 1: graph(); break;
         case 2: equals(); break;
-        case 3: printf("\n> Выбран пункт: Интеграл\n"); break;
+        case 3: integral(); break;
         case 4: showcase(); break;
         case 5: printf("\n\n\n\t\t\t" COLOR_GREEN "Автор: " COLOR_RESET "ст.гр. " COLOR_GREEN "ИВТ - 254 " COLOR_RESET "Дубровин А.А.\n\n"); break;
         case 6: return 0;
