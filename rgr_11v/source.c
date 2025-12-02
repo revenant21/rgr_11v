@@ -4,10 +4,14 @@
 #include <windows.h>
 #include <conio.h>
 
+// Константы и настройки
 #define KEY_UP 72
 #define KEY_DOWN 80
 #define KEY_ENTER 13
 #define MENU_SIZE 7
+#define EQUAL_MENU_SIZE 4
+#define INTEGRAL_MENU_SIZE 5
+
 #define a 0.00
 #define b (2 * 3.1415)
 #define n 20
@@ -16,402 +20,308 @@
 #define COLOR_GREEN   "\x1b[32m"
 #define COLOR_RESET   "\x1b[0m"
 
-const char* menu_items[MENU_SIZE] = {
-    "\t\t\t1. Таблица",
-    "\t\t\t2. Графики",
-    "\t\t\t3. Уравнения",
-    "\t\t\t4. Интеграл",
-    "\t\t\t5. Заставка",
-    "\t\t\t6. Об авторе",
-    "\t\t\t7. Выход"
+const char* menu_items[] = {
+    "\t\t\t1. Таблица", "\t\t\t2. Графики", "\t\t\t3. Уравнения", "\t\t\t4. Интеграл",
+    "\t\t\t5. Заставка", "\t\t\t6. Об авторе", "\t\t\t7. Выход"
+};
+const char* equal_menu_items[] = {
+    "\t\t\t1. Метод бисекции", "\t\t\t2. Метод хорд", "\t\t\t3. Метод Ньютона", "\t\t\t4. Выход"
 };
 
-// set color for menu (0 - no color, 1 - with color)
-void SetColor(int k) {
-    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (k == 1) {
-        SetConsoleTextAttribute(hConsole, FOREGROUND_GREEN);
-    }
-    else if (k == 0) {
-        SetConsoleTextAttribute(hConsole, 7);
-    }
-}
+// --- Служебные функции ---
 
-// hide console cursor
 void HideCursor() {
     CONSOLE_CURSOR_INFO info = { 100, FALSE };
     SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &info);
 }
 
-//function for pre-solve
-void solve_func(double res[3][n])
-{
-    double step = fabs(b - a) / (n - 1);
+void SetColor(int k) {
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), (k == 1) ? FOREGROUND_GREEN : 7);
+}
 
-    for (int num = 0; num < n; num++)
-    {
-        res[0][num] = a + num * step;
-        res[1][num] = 5 - 3 * cos(res[0][num]);
-        res[2][num] = sqrt(1 + pow(sin(res[0][num]), 2));
+int handle_menu(const char** items, int size, const char* title) {
+    int selected = 0, key;
+    while (1) {
+        system("cls");
+        printf("\n\n\n\t\t\t   --- %s ---\n\n", title);
+        for (int i = 0; i < size; i++) {
+            if (i == selected) SetColor(1);
+            printf(" %s  \n", items[i]);
+            if (i == selected) SetColor(0);
+        }
+        key = _getch();
+        if (key == 224 || key == 0) {
+            key = _getch();
+            if (key == KEY_UP) selected = (selected - 1 < 0) ? size - 1 : selected - 1;
+            if (key == KEY_DOWN) selected = (selected + 1 >= size) ? 0 : selected + 1;
+        }
+        else if (key == KEY_ENTER) return selected;
     }
 }
 
-// draw table
-void table_draw()
-{
+long map_val(double v, double min_v, double max_v, long p_min, long p_max) {
+    return (max_v - min_v < 1e-9) ? (p_min + p_max) / 2 : p_min + (long)((v - min_v) / (max_v - min_v) * (p_max - p_min));
+}
+
+void solve_table(double res[3][n]) {
+    double step = fabs(b - a) / (n - 1);
+    for (int i = 0; i < n; i++) {
+        res[0][i] = a + i * step;
+        res[1][i] = 5 - 3 * cos(res[0][i]);
+        res[2][i] = sqrt(1 + pow(sin(res[0][i]), 2));
+    }
+}
+
+double f(double x) { return 2 * x * log10(x) - 3; }
+double df(double x) { return 2 * log10(x) + 2.0 / log(10.0); }
+
+void table_draw() {
     double res[3][n];
-    int min1, min2, max1, max2;
+    int min1 = 0, max1 = 0, min2 = 0, max2 = 0;
+
+    solve_table(res);
+    for (int i = 0; i < n; i++) {
+        if (res[1][i] < res[1][min1]) min1 = i; if (res[1][i] > res[1][max1]) max1 = i;
+        if (res[2][i] < res[2][min2]) min2 = i; if (res[2][i] > res[2][max2]) max2 = i;
+    }
+
     printf("\n\t\t\t ___________________________________________ \n");
-    printf("\t\t\t | I |     X    |     F1     |      F2     | \n");
+    printf("\t\t\t | n |     x    |    F1(x)   |    F2(x)    | \n");
     printf("\t\t\t |---|----------|------------|-------------|\n");
-    solve_func(res);
 
-    min1 = minMax_table(res, 1, &max1);
-    min2 = minMax_table(res, 2, &max2);
+    for (int i = 0; i < n; i++) {
+        printf("\t\t\t |%3d| %8.6f |", i + 1, res[0][i]);
 
-    //check for min/max and coloring
-    for (int i = 0; i < n; i++)
-    {
-        printf("\t\t\t |%3d| %8.3f |", i + 1, res[0][i]);
-        
-        if (i == min1)
-        {
-            printf(COLOR_RED);
-        }
-        else if (i == max1)
-        {
-            printf(COLOR_GREEN);
-        }
-        
-        printf("%12.7f", res[1][i]);
-        printf(COLOR_RESET);
-        printf("|");
+        printf((i == min1) ? COLOR_RED : (i == max1) ? COLOR_GREEN : "");
+        printf("%12.7f" COLOR_RESET "|", res[1][i]);
 
-        if (i == min2)
-        {
-            printf(COLOR_RED);
-        }
-        else if (i == max2)
-        {
-            printf(COLOR_GREEN);
-        }
-
-        printf(" %12.8f", res[2][i]);
-        printf(COLOR_RESET);
-        printf("|\n");
+        printf((i == min2) ? COLOR_RED : (i == max2) ? COLOR_GREEN : "");
+        printf(" %12.8f" COLOR_RESET "|\n", res[2][i]);
     }
     printf("\t\t\t ___________________________________________ \n");
     printf("\t\t\tЛегенда: " COLOR_GREEN "Максимум " COLOR_RED "Минимум" COLOR_RESET);
 }
 
-//min and max for table_draw()
-int minMax_table(double res[3][n], int indx, int* m) 
-{
-    int min_res = 0;
-    int max_res = 0;
-    double max = res[indx][0];
-    double min = res[indx][0];
-
-    for (int i = 0; i < n; i++)
-    {
-        if (res[indx][i] < min)
-        {
-            min = res[indx][i];
-            min_res = i;
-        }
-        if (res[indx][i] > max) {
-            max = res[indx][i];
-            max_res = i;
-        }
-    }
-    *m = max_res;
-    return min_res;
-}
-
-//translate cords from math area to pixel area  
-long map_val(double v, double min_v, double max_v, long p_min, long p_max) {
-    return (max_v - min_v < 1e-9) ? (p_min + p_max) / 2 : p_min + (long)((v - min_v) / (max_v - min_v) * (p_max - p_min));
-}
-
-//draw a graph
-void graph()
-{
+void graph() {
     double res[3][n];
-    solve_func(res);
+    double ymin = 1e9, ymax = -1e9;
 
-    HWND hwn = GetConsoleWindow();
-    RECT rect;
-    HDC hdc = GetDC(hwn);
-    GetClientRect(hwn, &rect);
-
-    // padding inside client area
-    int pad_x = rect.right / 10;
-    int pad_y = rect.bottom / 10;
-    
-    int px_left = rect.left + pad_x;
-    int px_right = rect.right - pad_x;
-    int py_top = rect.top + pad_y;
-    int py_bottom = rect.bottom - pad_y;
-
-    system("color 0F");
-
-    // compute x and y ranges
-    double xmin = res[0][0];
-    double xmax = res[0][n - 1];
-
-    double ymin = res[1][0];
-    double ymax = res[1][0];
-
-    for (int i = 0; i < n; ++i) {
+    for (int i = 0; i < n; i++) {
+        solve_table(res);
         if (res[1][i] < ymin) ymin = res[1][i];
         if (res[1][i] > ymax) ymax = res[1][i];
         if (res[2][i] < ymin) ymin = res[2][i];
         if (res[2][i] > ymax) ymax = res[2][i];
     }
-
-    // small margin
     double margin = (ymax - ymin) * 0.1;
-	if (margin < 1e-9) margin = 1.0; // save from zero range
-    ymin -= margin;
-    ymax += margin;
+    if (margin < 1e-9) margin = 1.0;
+    ymin -= margin; ymax += margin;
 
-    HPEN pen_axis = CreatePen(PS_SOLID, 2, RGB(218, 164, 32));
-    HPEN pen_grid = CreatePen(PS_DOT, 1, RGB(50, 50, 50));
-    HPEN pen_f1 = CreatePen(PS_SOLID, 3, RGB(135, 206, 250));
-	HPEN pen_f2 = CreatePen(PS_SOLID, 3, RGB(255, 105, 180));
+    HWND hwn = GetConsoleWindow();
+    RECT rect; GetClientRect(hwn, &rect);
+    HDC hdc = GetDC(hwn);
 
+    int pad_x = rect.right / 10, pad_y = rect.bottom / 10;
+    int px_left = rect.left + pad_x, px_right = rect.right - pad_x;
+    int py_top = rect.top + pad_y, py_bottom = rect.bottom - pad_y;
+
+    system("color 0F");
+    HPEN pen_axis = CreatePen(PS_SOLID, 2, RGB(255, 160, 0));
+    HPEN pen_f1 = CreatePen(PS_SOLID, 3, RGB(0, 191, 255));
+    HPEN pen_f2 = CreatePen(PS_SOLID, 3, RGB(255, 80, 155));
+
+    SelectObject(hdc, pen_axis);
     SetBkMode(hdc, TRANSPARENT);
+    SetTextAlign(hdc, TA_CENTER | TA_TOP);
 
-    int steps = 10;
     char buf[32];
-
-	// draw Y axis labels and grid lines
-    SetTextAlign(hdc, TA_RIGHT | TA_TOP);
-    SetTextColor(hdc, RGB(200, 200, 200));
+    int steps = 10;
 
     for (int i = 0; i <= steps; i++) {
-        double val = ymin + (ymax - ymin) * i / steps;
-        long py = map_val(val, ymin, ymax, py_bottom, py_top);
+        double valY = ymin + (ymax - ymin) * i / steps;
+        long py = map_val(valY, ymin, ymax, py_bottom, py_top);
+        sprintf_s(buf, 32, "%.1f", valY);
+        SetTextColor(hdc, RGB(255, 255, 255));
+        TextOutA(hdc, px_left - 20, py - 8, buf, strlen(buf));
 
-		// draw tick mark
-        SelectObject(hdc, pen_axis);
-        MoveToEx(hdc, px_left - 5, py, NULL);
-        LineTo(hdc, px_left, py);
-
-		// output label
-        sprintf_s(buf, 32, "%.2f", val);
-        TextOutA(hdc, px_left - 8, py - 8, buf, strlen(buf));
+        double valX = res[0][0] + (res[0][n - 1] - res[0][0]) * i / steps;
+        long px = map_val(valX, res[0][0], res[0][n - 1], px_left, px_right);
+        sprintf_s(buf, 32, "%.1f", valX); 
+        SetTextColor(hdc, RGB(255, 255, 255));
+        TextOutA(hdc, px, py_bottom + 5, buf, strlen(buf));
     }
 
-	SetTextAlign(hdc, TA_CENTER | TA_TOP); // text alignment for X axis
-
-    for (int i = 0; i <= steps; i++) {
-        double val = xmin + (xmax - xmin) * i / steps;
-        long px = map_val(val, xmin, xmax, px_left, px_right);
-
-		// grid tick
-        SelectObject(hdc, pen_axis);
-        MoveToEx(hdc, px, py_bottom, NULL);
-        LineTo(hdc, px, py_bottom + 5);
-
-		// label
-        sprintf_s(buf, 32, "%.1f", val);
-        TextOutA(hdc, px, py_bottom + 8, buf, strlen(buf));
-    }
-
-    // draw axes (X and Y)
-    HPEN oldPen = (HPEN)SelectObject(hdc, pen_axis);
-
+    SelectObject(hdc, pen_axis);
     MoveToEx(hdc, px_left, py_top, NULL);
-    LineTo(hdc, px_left, py_bottom);  // О Y
-    LineTo(hdc, px_right, py_bottom); // О X
+    LineTo(hdc, px_left, py_bottom);
+    LineTo(hdc, px_right, py_bottom);
 
-    //draw graphs of F1 and F2
-    POINT points[n];
+    SetTextColor(hdc, RGB(255, 255, 255));
+    TextOutA(hdc, px_right + 30, py_bottom, "X", 1);
+    TextOutA(hdc, px_left, py_top - 30, "Y", 1);
 
-    // F1
+    POINT pts[n];
     SelectObject(hdc, pen_f1);
-    for (int i = 0; i < n; i++) {
-        points[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
-        points[i].y = map_val(res[1][i], ymin, ymax, py_bottom, py_top);
+    for (int i = 0; i < n; i++) { 
+        pts[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
+        pts[i].y = map_val(res[1][i], ymin, ymax, py_bottom, py_top);
     }
-    Polyline(hdc, points, n);
+    Polyline(hdc, pts, n);
 
-    // F2
     SelectObject(hdc, pen_f2);
     for (int i = 0; i < n; i++) {
-        points[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
-        points[i].y = map_val(res[2][i], ymin, ymax, py_bottom, py_top);
+        pts[i].x = map_val(res[0][i], res[0][0], res[0][n - 1], px_left, px_right);
+        pts[i].y = map_val(res[2][i], ymin, ymax, py_bottom, py_top); 
     }
-    Polyline(hdc, points, n);
+    Polyline(hdc, pts, n);
 
-    // output text of functions
-    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(0, 191, 255));
+    TextOutA(hdc, px_left + 350, py_top, "F1(x) = 5 - 3cos(x)", 19);
+    SetTextColor(hdc, RGB(255, 80, 155));
+    TextOutA(hdc, px_left + 350, py_top + 300, "F2(x) = sqrt(1 + sin^2(x))", 26);
 
-    SetTextColor(hdc, RGB(135, 206, 250));
-    TextOutA(hdc, px_left + 300, py_top, "F1(х) = 5 - 3cos(x)", 19);
-    
-    SetTextColor(hdc, RGB(255, 105, 180));
-    TextOutA(hdc, px_left + 300, py_top + 300, "F2(x) = sqrt(1 + sin^2(x))", 26);
-
-    // restore and cleanup
-    SelectObject(hdc, oldPen);
-    DeleteObject(pen_axis);
-    DeleteObject(pen_f1);
-    DeleteObject(pen_f2);
     ReleaseDC(hwn, hdc);
-    
     _getch();
 }
 
-void showcase()
-{
-    HWND hwn = GetConsoleWindow();
-    RECT rect;
-    GetClientRect(hwn, &rect);
-    HDC hdc = GetDC(hwn);
+void solve_bisection() {
+    double A, B, C, E;
+    int e;
+    printf("\n\t\t\tМетод бисекции\n\t\t\tВведите границы [a, b]: ");
+    scanf_s("%lf%lf", &A, &B);
+    printf("\t\t\tТочность (знаков): ");
+    scanf_s("%d", &e);
+    E = pow(0.1, e);
 
-    HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
-    HPEN oldPen = (HPEN)SelectObject(hdc, GetStockObject(NULL_PEN));
+    if (f(A) * f(B) > 0) { printf("\n\t\t\tОшибка: нет корня на интервале или четное число корней.\n"); return; }
 
-    int w = rect.right, h = rect.bottom;
-    int cols = w / 15;
-    int rows = h / 20;
+    do {
+        C = (A + B) / 2.0;
+        if (f(A) * f(C) < 0) B = C;
+        else A = C;
+    } while (fabs(f(C)) > E);
 
-    typedef struct { int y; int speed; int len; } Column;
-    Column* columns = (Column*)malloc(cols * sizeof(Column));
+    printf("\n\t\t\tКорень: %f\n", C);
+}
 
-    for (int i = 0; i < cols; i++) {
-        columns[i].y = rand() % rows;
-        columns[i].speed = 1 + rand() % 3;
-        columns[i].len = 5 + rand() % 10;
+void solve_chord() {
+    double A, B, C, E;
+    int e;
+    printf("\n\t\t\tМетод хорд\n\t\t\tВведите границы [a, b]: ");
+    scanf_s("%lf%lf", &A, &B); // Исправлено: %lf для double
+    printf("\t\t\tТочность (знаков): ");
+    scanf_s("%d", &e);
+    E = pow(0.1, e);
+
+    do {
+        C = (A * f(B) - B * f(A)) / (f(B) - f(A));
+        if (fabs(f(C)) <= E) break;
+        if (f(A) * f(C) < 0) B = C;
+        else A = C;
+    } while (1);
+
+    printf("\n\t\t\tКорень: %f\n", C);
+}
+
+void solve_newton() {
+    double x0, x1, eps;
+    int e_pow, step = 0;
+    printf("\n\t\t\tМетод Ньютона\n\t\t\tНачальное приближение: ");
+    scanf_s("%lf", &x0);
+    printf("\t\t\tТочность: ");
+    scanf_s("%d", &e_pow);
+    eps = pow(0.1, e_pow);
+
+    printf("\n\t\t\tШаг\t x0\t\t f(x0)\t\t f'(x0)\t\t x1\n");
+    printf("\t\t\t--------------------------------------------------------\n");
+
+    do {
+        if (fabs(df(x0)) < 1e-9) {
+            printf("\n\t\t\tПроизводная 0, метод не сходится.\n");
+            return;
+        }
+        x1 = x0 - f(x0) / df(x0);
+        printf("\t\t\t%d\t%9.6lf\t%9.6lf\t%9.6lf\t%9.6lf\n", ++step, x0, f(x0), df(x0), x1);
+        if (fabs(x1 - x0) < eps) break;
+        x0 = x1;
+    } while (step < 1000);
+
+    if (step < 1000) printf("\n\t\t\tКорень: %f\n", x1);
+    else printf("\n\t\t\tРасходимость.\n");
+}
+
+void equals() {
+    while (1) {
+        int sel = handle_menu(equal_menu_items, EQUAL_MENU_SIZE, "Решение уравнения");
+        system("cls");
+        if (sel == 3) break;
+
+        printf("\n\n\t\t\tРешение уравнения 2x * lg(x) - 3 = 0\n");
+        switch (sel) {
+        case 0: solve_bisection(); break;
+        case 1: solve_chord(); break;
+        case 2: solve_newton(); break;
+        }
+        printf("\nНажмите любую клавишу...");
+        _getch();
     }
+}
+
+void showcase() {
+    HWND hwn = GetConsoleWindow();
+    RECT rect; GetClientRect(hwn, &rect);
+    HDC hdc = GetDC(hwn);
+    HBRUSH bg = CreateSolidBrush(RGB(0, 0, 0));
+
+    int w = rect.right, cols = w / 15;
+    typedef struct { int y, speed, len; } Col;
+    Col* c = (Col*)malloc(cols * sizeof(Col));
+    for (int i = 0; i < cols; i++) { c[i].y = rand() % rect.bottom;
+    c[i].speed = 1 + rand() % 3; c[i].len = 5 + rand() % 10; }
 
     while (!_kbhit()) {
-        FillRect(hdc, &rect, bg);
-        SetBkMode(hdc, TRANSPARENT);
-
-        for (int col = 0; col < cols; col++) {
-            int x = col * 15 + 10;
-
-            // Яркая букв впереди (светлая)
+        FillRect(hdc, &rect, bg); SetBkMode(hdc, TRANSPARENT);
+        for (int j = 0; j < cols; j++) {
+            int x = j * 15 + 10;
             SetTextColor(hdc, RGB(0, 255, 0));
-            char ch = 'A' + rand() % 26;
-            char buf[] = { ch, 0 };
-            TextOutA(hdc, x, columns[col].y, buf, 1);
+            char ch = 'A' + rand() % 26; TextOutA(hdc, x, c[j].y, &ch, 1);
 
-            // Хвост (затухающая линия)
-            for (int i = 1; i < columns[col].len; i++) {
-                int brightness = 255 - (i * 255 / columns[col].len);
-                SetTextColor(hdc, RGB(0, brightness / 2, 0));
-
-                int ty = columns[col].y - i * 20;
-                if (ty >= 0) {
-                    char tail_ch = 'A' + rand() % 26;
-                    char tail[] = { tail_ch, 0 };
-                    TextOutA(hdc, x, ty, tail, 1);
-                }
+            for (int k = 1; k < c[j].len; k++) {
+                SetTextColor(hdc, RGB(0, 255 - (k * 255 / c[j].len), 0));
+                char tc = 'A' + rand() % 26;
+                if (c[j].y - k * 20 >= 0) TextOutA(hdc, x, c[j].y - k * 20, &tc, 1);
             }
-
-            // Движение и циклирование
-            columns[col].y += columns[col].speed;
-            if (columns[col].y > h) {
-                columns[col].y = -columns[col].len * 20;
-                columns[col].speed = 1 + rand() % 3;
-                columns[col].len = 5 + rand() % 10;
-            }
+            c[j].y += c[j].speed;
+            if (c[j].y > rect.bottom) { c[j].y = -c[j].len * 20; c[j].speed = 1 + rand() % 3; }
         }
-
         Sleep(50);
     }
-
-    free(columns);
-    SelectObject(hdc, oldPen);
+    free(c);
     DeleteObject(bg);
     ReleaseDC(hwn, hdc);
     _getch();
 }
 
 int main() {
-    setlocale(LC_ALL, "rus");
+    setlocale(LC_ALL, "RUS");
     HideCursor();
 
-    int selected = 0;
-    int key;
-    int running = 1;
+    while (1) {
+        int sel = handle_menu(menu_items, MENU_SIZE, "МЕНЮ");
+        system("cls");
+        SetColor(0);
 
-    while (running)
-    {
-        system("cls"); // clean screen before output menu
-        printf("\n\n\n");
-        printf("\t\t\t  --- МЕНЮ ---\n\n");
-
-        // draw menu with colors
-        for (int i = 0; i < MENU_SIZE; i++)
-        {
-            if (i == selected) {
-                SetColor(1);
-                printf(" %s  \n", menu_items[i]);
-                SetColor(0);   // return to normal color
-            }
-            else {
-                printf("   %s    \n", menu_items[i]);
-            }
+        switch (sel) {
+        case 0: printf("\n\t\t\tТаблица значений:"); table_draw(); break;
+        case 1: graph(); break;
+        case 2: equals(); break;
+        case 3: printf("\n> Выбран пункт: Интеграл\n"); break;
+        case 4: showcase(); break;
+        case 5: printf("\n\n\n\t\t\t" COLOR_GREEN "Автор: " COLOR_RESET "ст.гр. " COLOR_GREEN "ИВТ - 254 " COLOR_RESET "Дубровин А.А.\n\n"); break;
+        case 6: return 0;
         }
-
-        // waiting for press key
-        key = _getch();
-
-        // processing keys
-        if (key == 224 || key == 0) { // if press a spec-key
-            key = _getch(); // reading key code
-            switch (key) {
-            case KEY_UP:
-                selected--;
-                if (selected < 0) selected = MENU_SIZE - 1; // looping down to up
-                break;
-            case KEY_DOWN:
-                selected++;
-                if (selected >= MENU_SIZE) selected = 0; // looping up to down
-                break;
-            }
-        }
-        else if (key == KEY_ENTER) { // if press ENTER
-            system("cls"); // clear menu for show result
-            SetColor(0);   // set normal color
-
-            switch (selected)
-            {
-            case 0:
-                printf("\n\t\t\tТаблица значений:");
-                table_draw();
-                break;
-            case 1:
-                graph();
-                break;
-            case 2:
-                printf("\n> Выбран пункт: Уравнение\n");
-                break;
-            case 3:
-                printf("\n> Выбран пункт: Интеграл\n");
-                break;
-            case 4:
-                showcase();
-                break;
-            case 5:
-                printf("\n\n\n\t\t\t" COLOR_GREEN "Автор: " COLOR_RESET "ст.гр. " COLOR_GREEN "ИВТ - 254 " COLOR_RESET "Дубровин А.А.\n\n");
-                break;
-            case 6:
-                printf("\n> Выход из программы...\n");
-                running = 0;
-                break;
-            }
-
-            if (running) {
-                printf("\nНажмите любую клавишу для возврата в меню...");
-                _getch();
-            }
-        }
+        printf("\nНажмите любую клавишу для возврата...");
+        _getch();
     }
     return 0;
 }
